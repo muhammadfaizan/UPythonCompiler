@@ -24,5 +24,10 @@ namespace UPythonCompiler
         {
             InitializeComponent();
         }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            var source = Source.Text;
+        }
     }
 }
