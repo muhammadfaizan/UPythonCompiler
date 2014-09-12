@@ -159,9 +159,19 @@ namespace UPythonCompiler
                         break;
                 }
                 #endregion
-            } else if (Regex.IsMatch(input, "^\"" + @"[\w\W]*" + "\"$" ))
+            }
+            else if (Regex.IsMatch(input, "^\"" + @"[\w\s\W]*" + "\"$") || Regex.IsMatch(input, "^\"\"\"" + @"[\w\s\W]*" + "\"\"\"$"))
             {
                 Word.token = "StringLiteral";
+            }
+            else if (input == "(" || input == ")" || input == "%" || input == ",")
+            {
+                Word.token = input;
+            }
+            
+            else
+            {
+                Word.token = "Invalid";
             }
 
         }
@@ -199,24 +209,50 @@ namespace UPythonCompiler
             {
                 
                 ch = WordsToBreak[i];
+                // space handled here
                 if (ch == ' ')
                 {
-                    if (temp.ToString() != "")
+                    if (isStringEnd || isMultilineEnd)
+                    {
+                        temp.Append(ch);
+                    } 
+                    else if (temp.ToString() != "")
                     {
                         Words.Add(new RawWords(temp.ToString(), lineNumber) );
                         temp.Clear();
                     }
-                } else if( (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_'))
+                }
+                
+                // alphabets and Underscore handled here 
+                else if( (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_'))
                 {
                     temp.Append(ch);
                 }
+
+                else if (ch == '(' || ch == ')' || ch == '%' || ch == ',')
+                {
+                    if (isStringEnd || isMultilineEnd)
+                    {
+                        temp.Append(ch);
+                    }
+                    else
+                    {
+                        if (temp.ToString() != "")
+                        {
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                        }
+                        Words.Add(new RawWords(ch.ToString(), lineNumber));
+                    }
+                }
+                // double quotes handled here
                 else if (ch == '"')
                 {
-                    if ((WordsToBreak.Length - 1 > i + 3) && WordsToBreak.Substring(i, 3) == "\"\"\"")
+                    if ((WordsToBreak.Length >= i + 3) && WordsToBreak.Substring(i, 3) == "\"\"\"")
                     {
                         isMultilineEnd = !isMultilineEnd;
                         temp.Append(ch + "\"\"");
-                        i += 3;
+                        i += 2;
                     }
                     else
                     {
@@ -233,6 +269,22 @@ namespace UPythonCompiler
 
                     }
                 }
+                // handling remaining symbols & special character
+                // please refer to an ASCII table to understand what i did here
+                else if ((ch > ' ' && ch < 'A') || (ch >= '{' && ch <= '~') || (ch >= '[' && ch <= '`'))
+                {
+                    if (isStringEnd || isMultilineEnd)
+                    {
+                        temp.Append(ch);
+                    }
+                    else
+                    {
+                        Words.Add(new RawWords(temp.ToString(), lineNumber));
+                        temp.Clear();
+                        temp.Append(ch);
+                    }
+                }
+                // tabs handled here
                 else if (ch == '\t')
                 {
                     var NextIndent = 0;
@@ -252,13 +304,38 @@ namespace UPythonCompiler
                         Words.Add(new RawWords("__BODY_START__", lineNumber));
                         temp.Clear();
                     }
-                } else
+                }
+                // newline case handled here
+                else if (ch == '\n' || ch == '\r')
+                {
+                    // if it is in a multiline string of three double quotes
+                    if (isMultilineEnd)
+                    {
+                        temp.Append(ch);
+                    } 
+                    else
+                    {
+                        if(temp.ToString() != "")
+                        {
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                        }
+                        
+                    }
+                    lineNumber++;
+                }
+                // no case occured
+                else
                 {
                     Words.Add(new RawWords(temp.ToString(), lineNumber));
                     temp.Clear();
                 }
             }
-
+            if (temp.ToString() != "")
+            {
+                Words.Add(new RawWords(temp.ToString(), lineNumber));
+                temp.Clear();
+            }
             return Words;
         }
     }
