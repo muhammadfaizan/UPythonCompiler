@@ -13,6 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
+
 namespace UPythonCompiler
 {
     /// <summary>
@@ -28,6 +29,7 @@ namespace UPythonCompiler
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             var source = Source.Text;
+            Tokens.Text = LexicalAnalyzer.Compile(source);
         }
     }
 }

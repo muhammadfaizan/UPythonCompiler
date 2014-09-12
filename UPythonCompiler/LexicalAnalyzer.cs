@@ -14,6 +14,10 @@ namespace UPythonCompiler
         string word;
         public string token;
 
+        public uint getLineNumber()
+        {
+            return lineNumber;
+        }
         public string GetWord()
         {
             return word;
@@ -33,153 +37,225 @@ namespace UPythonCompiler
             Source = Input;
         }
 
-        private void parse(RawWords Word)
+        private static void parse(RawWords Word)
         {
             string input = Word.GetWord();
             //regular expressions...
-            if(Regex.IsMatch(input, @"[a-zA-Z_][\w_]*"))
+            if(Regex.IsMatch(input, @"^[a-zA-Z_][\w_]*$"))
             {
+                #region classifying keywords & identifiers
                 switch (input)
                 {
                     case "and":
-                        Word.token = "";
+                        Word.token = "Logical_And_Or";
                         break;
                     case "assert":
-                        Word.token = "";
+                        Word.token = "assert";
                         break;
                     case "break":
-                        Word.token = "";
+                        Word.token = "break";
                         break;
                     case "case":
-                        Word.token = "";
+                        Word.token = "case";
                         break;
                     case "class":
-                        Word.token = "";
+                        Word.token = "class";
                         break;
                     case "continue":
-                        Word.token = "";
+                        Word.token = "continue";
                         break;
                     case "def":
-                        Word.token = "";
+                        Word.token = "Def";
+                        break;
+                    case "default":
+                        Word.token = "default";
                         break;
                     case "del":
-                        Word.token = "";
+                        Word.token = "del";
                         break;
                     case "elif":
-                        Word.token = "";
+                        Word.token = "elif";
                         break;
                     case "else":
-                        Word.token = "";
+                        Word.token = "else";
                         break;
                     case "except":
-                        Word.token = "";
+                        Word.token = "except";
                         break;
                     case "exec":
-                        Word.token = "";
+                        Word.token = "Exec";
                         break;
                     case "finally":
-                        Word.token = "";
+                        Word.token = "finally";
                         break;
                     case "for":
-                        Word.token = "";
+                        Word.token = "for";
                         break;
                     case "from":
-                        Word.token = "";
+                        Word.token = "from";
                         break;
                     case "global":
-                        Word.token = "";
+                        Word.token = "global";
                         break;
                     case "if":
-                        Word.token = "";
+                        Word.token = "if";
                         break;
                     case "import":
-                        Word.token = "";
+                        Word.token = "import";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "in":
+                        Word.token = "in";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "is":
+                        Word.token = "is";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "lambda":
+                        Word.token = "lambda";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "not":
+                        Word.token = "not";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "or":
+                        Word.token = "or";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "pass":
+                        Word.token = "pass";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "print":
+                        Word.token = "print";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "raise":
+                        Word.token = "raise";
                         break;
-                    case "and":
-                        Word.token = "";
+                    case "repeat":
+                        Word.token = "repeat";
                         break;
-
+                    case "return":
+                        Word.token = "return";
+                        break;
+                    case "try":
+                        Word.token = "try";
+                        break;
+                    case "until":
+                        Word.token = "until";
+                        break;
+                    case "while":
+                        Word.token = "while";
+                        break;
+                    case "with":
+                        Word.token = "with";
+                        break;
+                    case "yield":
+                        Word.token = "yield";
+                        break;
+                    case "__BODY_END__":
+                        Word.token = "__BODY_END__";
+                        break;
+                    case "__BODY_START__":
+                        Word.token = "__BODY_START__";
+                        break;
+                    default:
+                        Word.token = "Identifier";
+                        break;
                 }
+                #endregion
+            } else if (Regex.IsMatch(input, "^\"" + @"[\w\W]*" + "\"$" ))
+            {
+                Word.token = "StringLiteral";
             }
 
         }
 
-        public static void Compile(string Input)
+        public static string Compile(string Input)
         {
             Source = Input;
-
+            var Words = WordBreak(Input);
+            StringBuilder Token = new StringBuilder();
+            foreach(var word in Words)
+            {
+                parse(word);
+                Token.AppendFormat("({0}, {1}, {2})\n", word.token, word.GetWord(), word.getLineNumber());
+            }
+            return Token.ToString();
 
         }
 
-        private Object WordBreak(string WordsToBreak)
+        private static List<RawWords> WordBreak(string WordsToBreak)
         {
-            
+            ushort LastIndent = 0;
             List<RawWords> Words = new List<RawWords>();
             StringBuilder temp = new StringBuilder();
             int lineNumber = 1;
             bool isMultilineEnd = false;
             bool isStringEnd = false;
-            char ch; 
-            for (var i = 0; i < WordsToBreak.Length;i++)
+            char ch;
+            var i = 0;
+            ch = WordsToBreak[i];
+            while(ch == '\t')
             {
-
+                LastIndent++;
+            }
+            for (i = 0; i < WordsToBreak.Length;i++)
+            {
+                
                 ch = WordsToBreak[i];
                 if (ch == ' ')
                 {
                     if (temp.ToString() != "")
                     {
                         Words.Add(new RawWords(temp.ToString(), lineNumber) );
+                        temp.Clear();
                     }
                 } else if( (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_'))
                 {
                     temp.Append(ch);
                 }
-                if (ch == '"')
+                else if (ch == '"')
                 {
-                    if (WordsToBreak.Length - 1 > i + 3) { 
-                        if (WordsToBreak.Substring(i, 3) == "\"\"\"")
-                        {
-                            isMultilineEnd = !isMultilineEnd;
-                            temp.Append(ch + "\"\"");
-                            i += 3;
-                        }
-                        
+                    if ((WordsToBreak.Length - 1 > i + 3) && WordsToBreak.Substring(i, 3) == "\"\"\"")
+                    {
+                        isMultilineEnd = !isMultilineEnd;
+                        temp.Append(ch + "\"\"");
+                        i += 3;
                     }
                     else
                     {
+                        temp.Append(ch);
+                        
                         if (isStringEnd)
                         {
-                            temp.Append(ch);
+                            
                             Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
                             
                         }
                         isStringEnd = !isStringEnd;
 
                     }
+                }
+                else if (ch == '\t')
+                {
+                    var NextIndent = 0;
+                    while(ch == '\t')
+                    {
+                        NextIndent++;
+                        i++;
+                        ch = WordsToBreak[i];
+                    }
+                    if (NextIndent < LastIndent)
+                    {
+                        Words.Add(new RawWords("__BODY_END__", lineNumber));
+                        temp.Clear();
+                    }
+                    else if (NextIndent > LastIndent)
+                    {
+                        Words.Add(new RawWords("__BODY_START__", lineNumber));
+                        temp.Clear();
+                    }
+                } else
+                {
+                    Words.Add(new RawWords(temp.ToString(), lineNumber));
+                    temp.Clear();
                 }
             }
 
