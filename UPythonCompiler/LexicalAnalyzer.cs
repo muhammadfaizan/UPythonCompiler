@@ -11,7 +11,7 @@ namespace UPythonCompiler
     class RawWords
     {
         uint lineNumber;
-        string word;
+        public string word;
         public string token;
 
         public uint getLineNumber()
@@ -27,6 +27,11 @@ namespace UPythonCompiler
             this.word = Word;
             this.lineNumber = (uint)LineNo;
         }
+        public RawWords(int LineNo, string Token)
+        {
+            this.lineNumber = (uint)LineNo;
+            this.token = Token;
+        }
     }
     class LexicalAnalyzer
     {
@@ -36,7 +41,18 @@ namespace UPythonCompiler
         {
             Source = Input;
         }
+        #region regex for different scenarios
+        private static string floatRegex()
+        {
+                    // + - or (digits)
+            return @"(^[\+-]?[\d]*\.[\d]+([e]([\+-]?[\d]+))?$|^[\+-]?[\d]+\.[\d]*([e]([\+-]?[\d]+))?$)";
+        }
+        private static string intRegex()
+        {
+            return @"^-?\+?[\d]+$";
+        }
 
+        #endregion
         private static void parse(RawWords Word)
         {
             string input = Word.GetWord();
@@ -160,22 +176,44 @@ namespace UPythonCompiler
                 }
                 #endregion
             }
+            // regex for string literal
             else if (Regex.IsMatch(input, "^\"" + @"[\w\s\W]*" + "\"$") || Regex.IsMatch(input, "^\"\"\"" + @"[\w\s\W]*" + "\"\"\"$"))
             {
                 Word.token = "StringLiteral";
+            }
+            // regex for integers
+            else if(Regex.IsMatch(input,intRegex()))
+            {
+                if (Regex.IsMatch(input, @"^[\d]+$"))
+                {
+                    Word.word = "+" + Word.word;
+                }
+                Word.token = "Integer";
+            }
+            // regex for float
+            else if (Regex.IsMatch(input,floatRegex(),RegexOptions.IgnoreCase) )
+            {
+                if (Regex.IsMatch(input, @"^[\.]"))
+                {
+                    Word.word = Regex.Replace(input, @"^[\.]", "0.");
+                }
+                else if (Regex.IsMatch(input, @"[\.]$"))
+                {
+                    Word.word = Regex.Replace(input, @"[\.]$", ".0");
+                }
+                Word.token = "Float";
             }
             else if (input == "(" || input == ")" || input == "%" || input == ",")
             {
                 Word.token = input;
             }
-            
             else
             {
                 Word.token = "Invalid";
             }
-
         }
 
+        
         public static string Compile(string Input)
         {
             Source = Input;
@@ -207,7 +245,6 @@ namespace UPythonCompiler
             }
             for (i = 0; i < WordsToBreak.Length;i++)
             {
-                
                 ch = WordsToBreak[i];
                 // space handled here
                 if (ch == ' ')
@@ -222,6 +259,33 @@ namespace UPythonCompiler
                         temp.Clear();
                     }
                 }
+
+                else if (ch== '.')
+                {
+                    // if temp already contains a . (dot), then push it in words and append a new . (Dot)
+                    if (Regex.IsMatch(temp.ToString(), @"[\.]"))
+                    {
+                        Words.Add(new RawWords(temp.ToString(), lineNumber));
+                        temp.Clear();
+                    }
+                    temp.Append(ch);
+                }
+                else if (ch == '+' || ch == '-')
+                {
+                    // if it already has something in temp. push it in, because a new something is coming in..
+                    if (temp.ToString() != "" && !Regex.IsMatch(temp.ToString(), @"[\.]\d*[eE]$"))
+                    {
+                        Words.Add(new RawWords(temp.ToString(), lineNumber));
+                        temp.Clear();
+                    }
+
+                    temp.Append(ch);
+                }
+                // numbers are being handled here  Have to handle point too
+                else if ( ch >= '0' && ch < '9')
+                {
+                    temp.Append(ch);
+                }
                 
                 // alphabets and Underscore handled here 
                 else if( (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch == '_'))
@@ -229,6 +293,7 @@ namespace UPythonCompiler
                     temp.Append(ch);
                 }
 
+                // ( ) % , handeled as they function similarly as for off now, i may have to seperate comma later.
                 else if (ch == '(' || ch == ')' || ch == '%' || ch == ',')
                 {
                     if (isStringEnd || isMultilineEnd)
@@ -258,12 +323,12 @@ namespace UPythonCompiler
                     {
                         temp.Append(ch);
                         
-                        if (isStringEnd)
+                        if (isStringEnd && temp[temp.Length-1] != '\\')
                         {
                             
                             Words.Add(new RawWords(temp.ToString(), lineNumber));
                             temp.Clear();
-                            
+
                         }
                         isStringEnd = !isStringEnd;
 
@@ -322,7 +387,10 @@ namespace UPythonCompiler
                         }
                         
                     }
-                    lineNumber++;
+                    if (ch == '\n')
+                    {
+                        lineNumber++;
+                    }
                 }
                 // no case occured
                 else
