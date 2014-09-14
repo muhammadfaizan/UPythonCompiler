@@ -617,9 +617,15 @@ namespace UPythonCompiler
                     }
                     else
                     {
+                        if (temp.ToString() != String.Empty)
+                        {
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                        }
                         temp.Append(ch);
                     }
-                    Words.Add(new RawWords(temp.ToString(), lineNumber));
+                    if (temp.ToString() != String.Empty)
+                        Words.Add(new RawWords(temp.ToString(), lineNumber));
                     temp.Clear();
                 }
                 #endregion
