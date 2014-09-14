@@ -8,6 +8,77 @@ using System.Text.RegularExpressions;
 
 namespace UPythonCompiler
 {
+    class BodyStack
+    {
+        public int[] Stack;
+        private byte top;
+        public BodyStack()
+        {
+            Stack = new int[100];
+            top = 0;
+        }
+        public void Push (int Element)
+        {
+            try
+            {
+                Stack[top++] = Element;
+            }
+            catch (Exception e)
+            {
+                top = 99;
+                throw e;
+            }
+        }
+        public bool IsEmpty()
+        {
+            return (top == 0) ? true : false;
+        }
+        public int Pop()
+        {
+            try
+            {
+                return Stack[--top];
+            }
+            catch
+            {
+                top = 0;
+                return -1;
+            }
+        }
+
+        public int Peek()
+        {
+            try
+            {
+                return Stack[top - 1];
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+        public int PeekBeneath()
+        {
+            try
+            {
+                return Stack[top - 2];
+            }
+            catch
+            {
+                return -1;
+            }
+        }
+        public int[] Copy()
+        {
+            var c = new int[100];
+            int i = 0;
+            foreach (var number in Stack)
+            {
+                c[i++] = number;
+            }
+            return c;
+        }
+    }
     class RawWords
     {
         uint lineNumber;
@@ -321,20 +392,25 @@ namespace UPythonCompiler
 
         private static List<RawWords> WordBreak(string WordsToBreak)
         {
-            ushort LastIndent = 0;
+            int LastIndent = 0;
             List<RawWords> Words = new List<RawWords>();
             StringBuilder temp = new StringBuilder();
+            BodyStack BS = new BodyStack();
+
             int lineNumber = 1;
             bool isMultilineEnd = false;
             bool isStringEnd = false;
             char ch;
             var i = 0;
             ch = WordsToBreak[i];
-            while(ch == '\t')
+            while(ch == '\t' || ch == ' ')
             {
-                LastIndent++;
+                LastIndent += (ch=='\t')? 4 : 1;
+                ch = WordsToBreak[++i];            
             }
-            for (i = 0; i < WordsToBreak.Length;i++)
+            Words.Add(new RawWords(lineNumber, "BodyStart"));
+            BS.Push(LastIndent);
+            for (; i < WordsToBreak.Length;i++)
             {
                 ch = WordsToBreak[i];
                 // space handled here
@@ -615,6 +691,11 @@ namespace UPythonCompiler
                 // tabs handled here
                 else if (ch == '\t')
                 {
+                    if (isMultilineEnd || isStringEnd)
+                    {
+                        temp.Append(ch);
+                        continue;
+                    }
                     var NextIndent = 0;
                     while(ch == '\t')
                     {
@@ -634,7 +715,7 @@ namespace UPythonCompiler
                         temp.Clear();
                     }
 
-                    LastIndent = (ushort)NextIndent;
+                    LastIndent = NextIndent;
                 }
                 #endregion
                 #region newLine and Carriage
@@ -657,24 +738,57 @@ namespace UPythonCompiler
                     }
                     if (ch == '\n')
                     {
-                        var j = i;
-                        var NextIndent = 0;
-                        while (WordsToBreak[j] == '\t')
-                        {
-                            NextIndent++;
-                        }
-                        i = j;
-                        if (NextIndent < LastIndent)
-                        {
-                            Words.Add(new RawWords(lineNumber - 1, "BodyEnd"));
-                            temp.Clear();
-                        }
-                        else if (NextIndent > LastIndent)
-                        {
-                            Words.Add(new RawWords(lineNumber, "BodyStart"));
-                            temp.Clear();
-                        }
                         lineNumber++;
+                        if( isMultilineEnd)
+                        {
+                            continue;
+                        }
+                        var j = i+1;
+                        var NextIndent = 0;
+                        if ( j < WordsToBreak.Length)
+                        { 
+                            ch = WordsToBreak[j];
+                            while (ch == '\t' || ch == ' ')
+                            {
+                                NextIndent += (ch=='\t')? 4:1;
+                                ch = WordsToBreak[++j];
+                            }
+                            i = (j - 1);
+                            LastIndent = BS.Peek();
+                            if (NextIndent != LastIndent)
+                            {
+                                if (NextIndent > LastIndent)
+                                {
+                                    BS.Push(NextIndent);
+                                    Words.Add(new RawWords(lineNumber, "BodyStart"));
+                                }
+                                else if (NextIndent < LastIndent)
+                                {
+                                    var bodyescape = 0;
+                                    while (!BS.IsEmpty() && NextIndent < BS.Peek())
+                                    {
+                                        bodyescape++;
+                                        LastIndent = BS.Pop();
+                                    }
+                                    LastIndent = BS.Peek();
+                                    if (LastIndent > NextIndent || LastIndent == -1) // right conditions first case passing
+                                    {
+                                        Words.Add(new RawWords(lineNumber, "InvalidIndentation")); // first case passing
+                                    }
+                                    else if (LastIndent == NextIndent)
+                                    {
+                                        for (var k = 0; k < bodyescape; k++)
+                                        {
+                                            Words.Add(new RawWords(lineNumber, "BodyEnd"));
+                                        }
+                                    }
+                                }
+                                    
+                                
+                           }
+
+                        }
+                        
                     }
                 }
                 #endregion
@@ -692,6 +806,8 @@ namespace UPythonCompiler
                 Words.Add(new RawWords(temp.ToString(), lineNumber));
                 temp.Clear();
             }
+            Words.Add(new RawWords(lineNumber, "BodyEnd"));
+
             return Words;
         }
     }
