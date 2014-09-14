@@ -415,7 +415,7 @@ namespace UPythonCompiler
                 ch = WordsToBreak[i];
                 // space handled here
                 #region space case here
-                if (ch == ' ')
+                if (ch == ' ' || ch=='\t')
                 {
                     if (isStringEnd || isMultilineEnd)
                     {
