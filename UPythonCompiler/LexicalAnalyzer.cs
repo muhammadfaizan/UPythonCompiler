@@ -415,7 +415,7 @@ namespace UPythonCompiler
                 ch = WordsToBreak[i];
                 // space handled here
                 #region space case here
-                if (ch == ' ' || ch=='\t')
+                if (ch == ' ' || ch=='\t' || ch == '#')
                 {
                     if (isStringEnd || isMultilineEnd)
                     {
@@ -425,6 +425,20 @@ namespace UPythonCompiler
                     {
                         Words.Add(new RawWords(temp.ToString(), lineNumber) );
                         temp.Clear();
+                    }
+                    if (ch == '#')
+                    {
+                        if (WordsToBreak.Contains('\r'))
+                        {
+                            i = WordsToBreak.IndexOf('\r', i) - 1;
+                        }
+                        else
+                        {
+                            i = WordsToBreak.Length - 1;
+                        }
+                        
+                        
+                        continue;
                     }
                 }
                 #endregion
