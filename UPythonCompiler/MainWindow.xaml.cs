@@ -29,7 +29,9 @@ namespace UPythonCompiler
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             var source = Source.Text;
-            Tokens.Text = LexicalAnalyzer.Compile(source);
+            string FileName;
+            Tokens.Text = LexicalAnalyzer.Compile(source, out FileName);
+            NewFileName.Text = "File written to : "+ FileName;
         }
     }
 }

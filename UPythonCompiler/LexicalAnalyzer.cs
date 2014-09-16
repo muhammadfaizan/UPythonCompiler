@@ -376,7 +376,7 @@ namespace UPythonCompiler
         }
 
         
-        public static string Compile(string Input)
+        public static string Compile(string Input,out string NewFileGenerated)
         {
             Source = Input;
             var Words = WordBreak(Input);
@@ -386,6 +386,11 @@ namespace UPythonCompiler
                 parse(word);
                 Token.AppendFormat("({0}, {1}, {2})\n", word.token, word.GetWord(), word.getLineNumber());
             }
+            Random randomGenerator = new Random();
+            NewFileGenerated = "output" + randomGenerator.Next().ToString()+ ".txt";
+            System.IO.StreamWriter FileToWrite = new System.IO.StreamWriter(NewFileGenerated);
+            FileToWrite.Write(Token);
+            
             return Token.ToString();
 
         }
@@ -791,7 +796,7 @@ namespace UPythonCompiler
                                         LastIndent = BS.Pop();
                                     }
                                     LastIndent = BS.Peek();
-                                    if (LastIndent > NextIndent || LastIndent == -1) // right conditions first case passing
+                                    if (LastIndent != NextIndent || LastIndent == -1) // right conditions first case passing
                                     {
                                         Words.Add(new RawWords(lineNumber, "InvalidIndentation")); // first case passing
                                     }
