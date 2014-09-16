@@ -387,7 +387,7 @@ namespace UPythonCompiler
                 Token.AppendFormat("({0}, {1}, {2})\n", word.token, word.GetWord(), word.getLineNumber());
             }
             Random randomGenerator = new Random();
-            NewFileGenerated = "output" + randomGenerator.Next().ToString()+ ".txt";
+            NewFileGenerated = "output" + randomGenerator.Next(0,100).ToString()+ ".txt";
             System.IO.StreamWriter FileToWrite = new System.IO.StreamWriter(NewFileGenerated);
             FileToWrite.Write(Token);
             
@@ -419,7 +419,7 @@ namespace UPythonCompiler
             {
                 ch = WordsToBreak[i];
                 // space handled here
-                #region space case here
+                #region space, tab and comment case here
                 if (ch == ' ' || ch=='\t' || ch == '#')
                 {
                     if (isStringEnd || isMultilineEnd)
@@ -433,7 +433,7 @@ namespace UPythonCompiler
                     }
                     if (ch == '#')
                     {
-                        if (WordsToBreak.Contains('\r'))
+                        if ( WordsToBreak.IndexOf('\r', i) != -1)
                         {
                             i = WordsToBreak.IndexOf('\r', i) - 1;
                         }
