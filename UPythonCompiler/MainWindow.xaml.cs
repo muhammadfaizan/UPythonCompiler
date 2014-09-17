@@ -30,8 +30,7 @@ namespace UPythonCompiler
         {
             var source = Source.Text;
             string FileName;
-            Tokens.Text = LexicalAnalyzer.Compile(source, out FileName);
-            NewFileName.Text = "File written to : "+ FileName;
+            Tokens.Text = LexicalAnalyzer.Compile(source);
         }
     }
 }

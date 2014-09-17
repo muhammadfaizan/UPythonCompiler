@@ -124,10 +124,36 @@ namespace UPythonCompiler
             return @"^-?\+?[\d]+$";
         }
 
+        private static string singleQuoteString()
+        {
+            string pattern = "^\"";
+            pattern += @".*";
+            pattern += "[^";
+            pattern += Regex.Escape('\\'.ToString()); 
+            pattern += "]?";
+            pattern += "\"$";
+
+            return pattern;
+        }
+        private static string tripleQuoteString()
+        {
+            string pattern = "";
+            pattern += "^\"\"\"";
+            pattern += @".*";
+            pattern += "[^";
+            pattern += Regex.Escape('\\'.ToString());
+            pattern += "]?";
+            pattern +="\"\"\"$";            
+            return pattern;
+        }
         #endregion
         private static void parse(RawWords Word)
         {
+            //var strPattern = strRegex();
             string input = Word.GetWord();
+            var isSingleQuote = Regex.IsMatch(input, singleQuoteString());
+            var isTripleQuote = Regex.IsMatch(input, tripleQuoteString());
+
             try { 
             //regular expressions...
                 if(Regex.IsMatch(input, @"^[a-zA-Z_][\w_]*$"))
@@ -251,7 +277,8 @@ namespace UPythonCompiler
                 }
                 #region literal integers, floats, strings
                 // regex for string literal
-                else if (Regex.IsMatch(input, "^\"" + @"[\w\s\W]*" + "\"$") || Regex.IsMatch(input, "^\"\"\"" + @"[\w\s\W]*" + "\"\"\"$"))
+                else if (isSingleQuote || isTripleQuote || input == "\"\"") 
+                    //if (Regex.IsMatch(input, "^\"" + @"[\w\s\W]*" + "[^\\]"+"\\" +"$") || Regex.IsMatch(input, "^\"\"\"" + @"[\w\s\W]*" + "\"\"\"$"))
                 {
                     Word.token = "StringLiteral";
                 }
@@ -319,16 +346,20 @@ namespace UPythonCompiler
                 // handling plus (+)
                 else if (input == "+")
                 {
-                    Word.token = "Plus";
+                    Word.token = "P_M";
                 }
                 // handling plus (-)
                 else if (input == "-")
                 {
                     Word.token = "Minus";
                 }
-                else if( input == "%" )
+                else if (input == "%")
                 {
                     Word.token = "Mod";
+                }
+                else if (input == "/" || input == "*")
+                {
+                    Word.token = "Mul_Div";
                 }
                 #endregion
                 #region bitwise operations
@@ -353,14 +384,21 @@ namespace UPythonCompiler
                     Word.token = "AssignmentOperator";
                 }
                 #endregion
+                #region seperators
                 else if (input == ":")
                 {
                     Word.token = "Colon";
+                }
+                else if (input == ".")
+                {
+                    Word.token = "Dot";
                 }
                 else if (input == ",")
                 {
                     Word.token = "Comma";
                 }
+                #endregion
+                #region invalid
                 else
                 {
                     if (Word.token == null)
@@ -368,6 +406,7 @@ namespace UPythonCompiler
                         Word.token = "Invalid";
                     }
                 }
+                #endregion
             }
             catch (Exception e)
             {
@@ -376,7 +415,7 @@ namespace UPythonCompiler
         }
 
         
-        public static string Compile(string Input,out string NewFileGenerated)
+        public static string Compile(string Input)
         {
             Source = Input;
             var Words = WordBreak(Input);
@@ -386,11 +425,12 @@ namespace UPythonCompiler
                 parse(word);
                 Token.AppendFormat("({0}, {1}, {2})\n", word.token, word.GetWord(), word.getLineNumber());
             }
+            /*
             Random randomGenerator = new Random();
             NewFileGenerated = "output" + randomGenerator.Next(0,100).ToString()+ ".txt";
             System.IO.StreamWriter FileToWrite = new System.IO.StreamWriter(NewFileGenerated);
             FileToWrite.Write(Token);
-            
+            */
             return Token.ToString();
 
         }
@@ -465,12 +505,14 @@ namespace UPythonCompiler
                 #region Dot case here
                 else if (ch== '.')
                 {
+
                     // if temp already contains a . (dot), then push it in words and append a new . (Dot)
                     if (Regex.IsMatch(temp.ToString(), @"[\.]") && !isStringEnd && !isMultilineEnd)
                     {
                         Words.Add(new RawWords(temp.ToString(), lineNumber));
                         temp.Clear();
                     }
+                    
                     temp.Append(ch);
                 }
                 #endregion
@@ -590,6 +632,27 @@ namespace UPythonCompiler
                     }
                 }
                 #endregion
+                #region backslash \ case handled
+                else if (ch == '\\')
+                {
+                    if (isMultilineEnd || isStringEnd)
+                    {
+                        if (WordsToBreak.Length > i + 1)
+                        {
+                            temp.Append(ch.ToString() + WordsToBreak[i + 1].ToString());
+                            i++;
+                        }
+                        else
+                        {
+                            temp.Append(ch);
+                        }
+                    }
+                    else
+                    {
+                        temp.Append(ch);
+                    }
+                }
+                #endregion
                 #region Exclamation Mark !
                 else if (ch == '!')
                 {
@@ -671,24 +734,48 @@ namespace UPythonCompiler
                 // double quotes handled here
                 else if (ch == '"')
                 {
-                    if ((WordsToBreak.Length >= i + 3) && WordsToBreak.Substring(i, 3) == "\"\"\"")
+                    if ((WordsToBreak.Length >= i + 2) && WordsToBreak.Substring(i, 3) == "\"\"\"" && isStringEnd==false)
                     {
-                        isMultilineEnd = !isMultilineEnd;
+                        if (isMultilineEnd == false)
+                        {
+                            if (temp.ToString() != String.Empty)
+                            {
+                                Words.Add(new RawWords(temp.ToString(), lineNumber));
+                                temp.Clear();
+                            }
+                            isMultilineEnd = true;
+                        }
                         temp.Append(ch + "\"\"");
                         i += 2;
+                        if (isMultilineEnd == true)
+                        {
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                        }
                     }
                     else
                     {
-                        temp.Append(ch);
-                        
-                        if (isStringEnd && temp[temp.Length-1] != '\\')
+                        if (isMultilineEnd == true)
                         {
-                            
+                            temp.Append(ch);
+                        } 
+                        else if (isStringEnd == false)
+                        {
+                            isStringEnd = true;
+                            if (temp.ToString() != "")
+                            {
+                                Words.Add(new RawWords(temp.ToString(), lineNumber));
+                                temp.Clear();
+                            }
+                            temp.Append(ch);
+                        }
+                        else
+                        {
+                            temp.Append(ch);
                             Words.Add(new RawWords(temp.ToString(), lineNumber));
                             temp.Clear();
-
+                            isStringEnd = false;
                         }
-                        isStringEnd = !isStringEnd;
 
                     }
                 }
@@ -699,17 +786,6 @@ namespace UPythonCompiler
                 else if ((ch > ' ' && ch < 'A') || (ch >= '{' && ch <= '~') || (ch >= '[' && ch <= '`'))
                 {
                     temp.Append(ch);
-                    /*
-                    if (isStringEnd || isMultilineEnd)
-                    {
-                        temp.Append(ch);
-                    }
-                    else
-                    {
-                        Words.Add(new RawWords(temp.ToString(), lineNumber));
-                        temp.Clear();
-                        temp.Append(ch);
-                    }*/
                 }
                 #endregion
                 #region tab
