@@ -121,7 +121,7 @@ namespace UPythonCompiler
         }
         private static string intRegex()
         {
-            return @"^-?\+?[\d]+$";
+            return @"^[\+\-]?[\d]+$";
         }
 
         private static string singleQuoteString()
@@ -343,15 +343,10 @@ namespace UPythonCompiler
                 {
                     Word.token = "FloorDivision";
                 }
-                // handling plus (+)
-                else if (input == "+")
+                // handling plus Minus(+ -)
+                else if (input == "+" || input == "-")
                 {
                     Word.token = "P_M";
-                }
-                // handling plus (-)
-                else if (input == "-")
-                {
-                    Word.token = "Minus";
                 }
                 else if (input == "%")
                 {
@@ -528,21 +523,34 @@ namespace UPythonCompiler
                     // if not yet the temp has something,
                     else if (temp.ToString() != "")
                     {
-                        //then push it
-                        Words.Add(new RawWords(temp.ToString(), lineNumber));
-                        temp.Clear();                        
-                    }
-                    if (WordsToBreak.Length > i + 1 && WordsToBreak[i + 1] == '=')
+                        if ((Regex.IsMatch(temp.ToString(), intRegex()) || Regex.IsMatch(temp.ToString(), floatRegex())) && WordsToBreak[i+1] != '=')
+                        {
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                            temp.Append(ch);
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                        }
+                        else
+                        {
+                            //then push it
+                            Words.Add(new RawWords(temp.ToString(), lineNumber));
+                            temp.Clear();
+                            temp.Append(ch);
+                        }
+                    } 
+                    if ((WordsToBreak.Length > i + 1 && WordsToBreak[i + 1] == '=') 
+                        && !isMultilineEnd && !isStringEnd 
+                        && temp.ToString() == String.Empty)
                     {
                         temp.Append(ch.ToString() + "=");
                         i++;
+                        Words.Add(new RawWords(temp.ToString(), lineNumber));
+                        temp.Clear();
                     }
-                    else
-                    {
-                        temp.Append(ch);
-                    }
-                    Words.Add(new RawWords(temp.ToString(), lineNumber));
-                    temp.Clear();
+                    
+                    // 
+                    //temp.Clear();
                     
                 }
                 #endregion
