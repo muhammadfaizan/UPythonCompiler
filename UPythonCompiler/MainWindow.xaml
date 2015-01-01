@@ -8,11 +8,10 @@
                  Height="372" 
                  Margin="10,37,0,0" 
                  TextWrapping="Wrap" 
-                 Text="3.14" 
                  VerticalAlignment="Top" 
                  Width="287" 
                  AcceptsTab="True" 
-                 AcceptsReturn="True"/>
+                 AcceptsReturn="True" />
         <TextBox Name="Tokens" 
                  HorizontalAlignment="Right" 
                  Height="372" 
